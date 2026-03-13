@@ -1,0 +1,31 @@
+name: Test Notebook
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted, linux, gpu]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: System info
+        run: |
+          python3 --version
+          python3 -c "import torch; print('torch', torch.__version__); print('CUDA', torch.cuda.is_available()); print('GPU', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
+
+      - name: Install dependencies
+        run: |
+          pip install scipy --break-system-packages -q
+
+      - name: Run notebook tests (synthetic data only)
+        run: python3 test_notebook.py
+
+      - name: Run notebook tests + DINOv2 backbone
+        run: python3 test_notebook.py --dinov2
