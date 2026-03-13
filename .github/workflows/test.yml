@@ -18,14 +18,14 @@ jobs:
       - name: System info
         run: |
           python3 --version
-          python3 -c "
+          python3 -c '
 import torch, sys
 print('torch:', torch.__version__)
 print('CUDA:', torch.cuda.is_available())
 if torch.cuda.is_available():
     print('GPU:', torch.cuda.get_device_name(0))
     print('VRAM:', round(torch.cuda.get_device_properties(0).total_memory/1e9,1), 'GB')
-"
+'
 
       - name: Install dependencies
         run: pip install scipy --break-system-packages -q
