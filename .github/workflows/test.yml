@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write        # allows the job to push commits back
+
 jobs:
   test:
     runs-on: [self-hosted]
@@ -14,18 +17,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: System info
         run: |
           python3 --version
           python3 - <<'PYEOF'
-          import torch, sys
+          import torch
           print("torch:", torch.__version__)
           print("CUDA:", torch.cuda.is_available())
           if torch.cuda.is_available():
               print("GPU:", torch.cuda.get_device_name(0))
-              vram = torch.cuda.get_device_properties(0).total_memory / 1e9
-              print(f"VRAM: {vram:.1f} GB")
+              print("VRAM:", round(torch.cuda.get_device_properties(0).total_memory/1e9,1), "GB")
           else:
               print("GPU: none (CPU only)")
           PYEOF
