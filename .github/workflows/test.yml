@@ -18,36 +18,33 @@ jobs:
       - name: System info
         run: |
           python3 --version
-          python3 -c '
-import torch, sys
-print('torch:', torch.__version__)
-print('CUDA:', torch.cuda.is_available())
-if torch.cuda.is_available():
-    print('GPU:', torch.cuda.get_device_name(0))
-    print('VRAM:', round(torch.cuda.get_device_properties(0).total_memory/1e9,1), 'GB')
-'
+          python3 - <<'PYEOF'
+          import torch, sys
+          print("torch:", torch.__version__)
+          print("CUDA:", torch.cuda.is_available())
+          if torch.cuda.is_available():
+              print("GPU:", torch.cuda.get_device_name(0))
+              vram = torch.cuda.get_device_properties(0).total_memory / 1e9
+              print(f"VRAM: {vram:.1f} GB")
+          else:
+              print("GPU: none (CPU only)")
+          PYEOF
 
       - name: Install dependencies
         run: pip install scipy --break-system-packages -q
 
       - name: Run tests (synthetic only)
-        id: tests_synthetic
-        run: |
-          python3 test_notebook.py 2>&1 | tee ci_results_synthetic.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        run: python3 test_notebook.py 2>&1 | tee ci_results_synthetic.txt
 
       - name: Run tests + DINOv2 backbone
-        id: tests_dinov2
-        run: |
-          python3 test_notebook.py --dinov2 2>&1 | tee ci_results_dinov2.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        run: python3 test_notebook.py --dinov2 2>&1 | tee ci_results_dinov2.txt
 
-      # Commit results back to repo so they're readable via git pull
       - name: Commit test results
         if: always()
         run: |
           git config user.email "ci@github-actions"
           git config user.name "GitHub Actions"
+          git pull origin main --rebase -q
           git add ci_results_synthetic.txt ci_results_dinov2.txt 2>/dev/null || true
           git diff --cached --quiet || git commit -m "ci: test results [skip ci]"
           git push origin main
