@@ -11,7 +11,7 @@ defaults:
     shell: bash
 
 env:
-  VENV: /home/github-runner/venv
+  VENV: /home/seth/venv
 
 jobs:
   test:
