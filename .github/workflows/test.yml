@@ -25,28 +25,27 @@ jobs:
           persist-credentials: true
 
       - name: Run tests (synthetic only)
-        # continue-on-error so the commit step always runs even if tests fail
         continue-on-error: true
         run: |
-          source $VENV/bin/activate
-          python3 test_notebook.py 2>&1 | tee ci_results_synthetic.txt
-          echo "Exit code: ${PIPESTATUS[0]}" >> ci_results_synthetic.txt
+          echo "=== RUN STARTED $(date) ===" > ci_results_synthetic.txt
+          source $VENV/bin/activate 2>&1 >> ci_results_synthetic.txt || echo "VENV ACTIVATE FAILED" >> ci_results_synthetic.txt
+          python3 test_notebook.py >> ci_results_synthetic.txt 2>&1
+          echo "=== EXIT CODE: $? ===" >> ci_results_synthetic.txt
 
       - name: Run tests + DINOv2 backbone
         continue-on-error: true
         run: |
-          source $VENV/bin/activate
-          python3 test_notebook.py --dinov2 2>&1 | tee ci_results_dinov2.txt
-          echo "Exit code: ${PIPESTATUS[0]}" >> ci_results_dinov2.txt
+          echo "=== RUN STARTED $(date) ===" > ci_results_dinov2.txt
+          source $VENV/bin/activate 2>&1 >> ci_results_dinov2.txt || echo "VENV ACTIVATE FAILED" >> ci_results_dinov2.txt
+          python3 test_notebook.py --dinov2 >> ci_results_dinov2.txt 2>&1
+          echo "=== EXIT CODE: $? ===" >> ci_results_dinov2.txt
 
       - name: Commit test results
         if: always()
         run: |
-          # Ensure files exist even if steps were skipped
-          touch ci_results_synthetic.txt ci_results_dinov2.txt
           git config user.email "ci@github-actions"
           git config user.name "GitHub Actions"
           git pull origin main --rebase -q
-          git add ci_results_synthetic.txt ci_results_dinov2.txt
-          git diff --cached --quiet || git commit -m "ci: test results [skip ci]"
+          git add -f ci_results_synthetic.txt ci_results_dinov2.txt
+          git commit -m "ci: test results [skip ci]" || echo "nothing to commit"
           git push origin main
