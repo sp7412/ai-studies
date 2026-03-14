@@ -1,0 +1,39 @@
+=== RUN STARTED Fri Mar 13 09:37:16 PM MDT 2026 ===
+/home/seth/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:129: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 804: forward compatibility was attempted on non supported HW (Triggered internally at ../c10/cuda/CUDAFunctions.cpp:108.)
+  return torch._C._cuda_getDeviceCount() > 0
+/home/seth/venv/lib/python3.12/site-packages/torch/nn/modules/transformer.py:379: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.self_attn.batch_first was not True(use batch_first for better inference performance)
+  warnings.warn(
+Using cache found in /home/seth/.cache/torch/hub/facebookresearch_dinov2_main
+/home/seth/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/home/seth/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/home/seth/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+GPU  : None (CPU)
+Device: cpu
+============================================================
+
+============================================================
+Running notebook tests...
+============================================================
+
+✓ TEST 1: YOLO→COCO converter
+✓ TEST 2: Synthetic dataset & DataLoader
+✓ TEST 3: Detection head forward pass & output shapes
+✓ TEST 4: Hungarian matcher (bipartite assignment)
+✓ TEST 5: Loss forward pass — total=12.1255  cls=2.2067  giou=1.4170
+✓ TEST 6: Full model forward — logits (2, 50, 6), bboxes (2, 50, 4), params=0.86M
+✓ TEST 7: 1 epoch training — avg loss=17.2287, 4 steps × batch 4
+✓ TEST 8: GIoU — perfect=1.0000, non-overlap=-0.9200
+  TEST 9: DINOv3 backbone — SKIPPED (set run=True to enable)
+✓ TEST 10: DINOv2 backbone — tapped blocks [3, 6, 11], spatial shape (1, 384, 40, 40)
+
+============================================================
+ALL TESTS PASSED ✓
+============================================================
+
+To also test real backbone weights (downloads ~80-100 MB):
+  python test_notebook.py --dinov2
+  python test_notebook.py --dinov3   # requires timm>=1.0.20
+=== EXIT CODE: 0 ===
