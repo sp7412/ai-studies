@@ -10,6 +10,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: write        # allows the runner to push results back to the repo
+
 env:
   VENV: /home/seth/venv
 
