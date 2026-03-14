@@ -24,21 +24,6 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: System info
-        run: |
-          source $VENV/bin/activate
-          python3 --version
-          python3 -c "
-import torch
-print('torch:', torch.__version__)
-print('CUDA: ', torch.cuda.is_available())
-if torch.cuda.is_available():
-    print('GPU: ', torch.cuda.get_device_name(0))
-    print('VRAM:', round(torch.cuda.get_device_properties(0).total_memory/1e9, 1), 'GB')
-else:
-    print('WARNING: CUDA not available, tests will run on CPU')
-"
-
       - name: Run tests (synthetic only)
         # continue-on-error so the commit step always runs even if tests fail
         continue-on-error: true
