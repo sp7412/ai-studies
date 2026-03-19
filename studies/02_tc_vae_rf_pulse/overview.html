@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study 02 — TC-VAE RF Pulse</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #ffffff;
+    --bg2:      #f7f6f2;
+    --bg3:      #f1efe8;
+    --border:   rgba(0,0,0,0.10);
+    --border2:  rgba(0,0,0,0.18);
+    --text:     #1a1a18;
+    --text2:    #3d3d3a;
+    --text3:    #73726c;
+    --purple50: #EEEDFE; --purple800: #3C3489;  --purple600: #534AB7;
+    --teal50:   #E1F5EE; --teal800:   #085041;  --teal600:   #0F6E56;
+    --coral50:  #FAECE7; --coral800:  #712B13;  --coral600:  #993C1D;
+    --blue50:   #E6F1FB; --blue800:   #0C447C;  --blue600:   #185FA5;
+    --amber50:  #FAEEDA; --amber800:  #633806;  --amber600:  #854F0B;
+    --pink50:   #FBEAF0; --pink800:   #72243E;  --pink600:   #993556;
+    --gray50:   #F1EFE8; --gray800:   #2C2C2A;  --gray600:   #5F5E5A;
+    --green50:  #EAF3DE; --green800:  #27500A;  --green600:  #3B6D11;
+    --radius:   12px;
+    --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:     #1c1c1a; --bg2: #242422; --bg3: #2c2c2a;
+      --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+      --text:   #e8e6de; --text2: #c2c0b6; --text3: #9c9a92;
+      --purple50: #26215C; --purple800: #CECBF6;
+      --teal50:   #04342C; --teal800:   #9FE1CB;
+      --coral50:  #4A1B0C; --coral800:  #F5C4B3;
+      --blue50:   #042C53; --blue800:   #B5D4F4;
+      --amber50:  #412402; --amber800:  #FAC775;
+      --pink50:   #4B1528; --pink800:   #F4C0D1;
+      --gray50:   #2C2C2A; --gray800:   #D3D1C7;
+      --green50:  #173404; --green800:  #C0DD97;
+    }
+  }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 15px;
+         line-height: 1.65; color: var(--text); background: var(--bg); padding: 0 0 60px; }
+  .hero { padding: 48px 40px 36px; border-bottom: 1px solid var(--border); }
+  .hero h1 { font-size: 26px; font-weight: 600; margin-bottom: 8px; }
+  .hero .sub { color: var(--text3); font-size: 14px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .pill { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 20px;
+          border: 1px solid; }
+  .pill-purple { background: var(--purple50); color: var(--purple800); border-color: var(--purple600); }
+  .pill-teal   { background: var(--teal50);   color: var(--teal800);   border-color: var(--teal600); }
+  .pill-coral  { background: var(--coral50);  color: var(--coral800);  border-color: var(--coral600); }
+  .pill-blue   { background: var(--blue50);   color: var(--blue800);   border-color: var(--blue600); }
+  .pill-amber  { background: var(--amber50);  color: var(--amber800);  border-color: var(--amber600); }
+
+  .section { padding: 36px 40px 0; }
+  h2 { font-size: 19px; font-weight: 600; margin-bottom: 20px; padding-bottom: 10px;
+       border-bottom: 1px solid var(--border); }
+  h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--text2); }
+  p  { color: var(--text2); margin-bottom: 12px; }
+
+  /* Architecture diagram */
+  .arch-wrap { background: var(--bg2); border: 1px solid var(--border);
+               border-radius: var(--radius); padding: 24px; overflow-x: auto; }
+  .arch-wrap svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+
+  /* Loss equation */
+  .equation { background: var(--bg3); border-left: 3px solid var(--purple600);
+              border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+              padding: 14px 18px; font-family: "Courier New", monospace;
+              font-size: 13px; color: var(--text2); margin: 16px 0; }
+
+  /* Latent slots grid */
+  .slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 24px; }
+  .slot { border-radius: var(--radius-sm); padding: 12px 14px; border: 1px solid; }
+  .slot-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .slot-detail { font-size: 11px; opacity: 0.8; }
+  .slot-teal   { background: var(--teal50);   color: var(--teal800);   border-color: var(--teal600); }
+  .slot-coral  { background: var(--coral50);  color: var(--coral800);  border-color: var(--coral600); }
+
+  /* Decoder cards */
+  .decoder-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0 24px; }
+  .dec-card { border: 1px solid var(--border2); border-radius: var(--radius-sm);
+              padding: 16px; background: var(--bg2); }
+  .dec-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .dec-card p  { font-size: 12px; color: var(--text3); margin: 0; }
+  .dec-badge { display: inline-block; font-size: 10px; font-weight: 600;
+               padding: 2px 7px; border-radius: 20px; margin-bottom: 6px; }
+
+  /* Paper accordion */
+  .paper-section { margin-bottom: 8px; border: 1px solid var(--border);
+                   border-radius: var(--radius-sm); overflow: hidden; }
+  .paper-header { display: flex; align-items: center; justify-content: space-between;
+                  padding: 10px 14px; cursor: pointer; background: var(--bg2);
+                  user-select: none; }
+  .paper-header:hover { background: var(--bg3); }
+  .paper-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .paper-badge { font-size: 11px; font-weight: 500; padding: 2px 8px;
+                 border-radius: 20px; border: 1px solid; }
+  .chevron { font-size: 11px; color: var(--text3); transition: transform .2s; }
+  .chevron.open { transform: rotate(90deg); }
+  .paper-body { display: none; padding: 6px 8px 10px; }
+  .paper-body.open { display: block; }
+  .paper-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+               padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+               border: 1px solid var(--border); background: var(--bg);
+               cursor: pointer; transition: background .12s; }
+  .paper-row:hover { background: var(--bg2); }
+  .paper-row:last-child { margin-bottom: 0; }
+  .pr-name   { font-size: 13px; font-weight: 500; color: var(--text); }
+  .pr-auth   { font-size: 11px; color: var(--text3); }
+  .pr-note   { font-size: 11px; color: var(--text3); font-style: italic; margin-top: 2px; }
+  .pr-year   { font-size: 11px; color: var(--text3); grid-column: 2; grid-row: 1;
+               white-space: nowrap; align-self: start; padding-top: 2px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 500;
+         padding: 1px 6px; border-radius: 20px; margin: 3px 3px 0 0; }
+  .t-core { background: var(--purple50); color: var(--purple800); }
+  .t-impl { background: var(--teal50);   color: var(--teal800); }
+  .t-rf   { background: var(--amber50);  color: var(--amber800); }
+  .t-cvnn { background: var(--coral50);  color: var(--coral800); }
+  .t-disc { background: var(--pink50);   color: var(--pink800); }
+  .t-dis  { background: var(--blue50);   color: var(--blue800); }
+
+  /* Takeaways */
+  .takeaways { list-style: none; margin: 0; }
+  .takeaways li { padding: 14px 16px; margin-bottom: 8px; border-radius: var(--radius-sm);
+                  border-left: 3px solid; background: var(--bg2); font-size: 14px; color: var(--text2); }
+  .takeaways li strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 14px; }
+  .t1 { border-color: var(--purple600); }
+  .t2 { border-color: var(--teal600); }
+  .t3 { border-color: var(--coral600); }
+  .t4 { border-color: var(--amber600); }
+  .t5 { border-color: var(--blue600); }
+
+  /* Schedule diagram */
+  .schedule { display: flex; gap: 0; margin: 16px 0 24px; border-radius: var(--radius-sm);
+              overflow: hidden; border: 1px solid var(--border); }
+  .sched-phase { flex: 1; padding: 12px 14px; font-size: 12px; color: var(--text2); }
+  .sched-phase strong { display: block; font-size: 11px; font-weight: 600;
+                        margin-bottom: 4px; }
+  .sp1 { background: var(--blue50);   border-right: 1px solid var(--border); }
+  .sp2 { background: var(--purple50); border-right: 1px solid var(--border); }
+  .sp3 { background: var(--teal50);   border-right: 1px solid var(--border); }
+  .sp4 { background: var(--amber50); }
+
+  code { font-family: "Courier New", monospace; font-size: 12px;
+         background: var(--bg3); padding: 1px 5px; border-radius: 4px;
+         color: var(--text2); }
+  pre  { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+         padding: 14px 16px; font-size: 12px; overflow-x: auto; color: var(--text2);
+         font-family: "Courier New", monospace; line-height: 1.6; margin: 12px 0; }
+
+  .divider { height: 1px; background: var(--border); margin: 36px 40px 0; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="sub">Study 02 · ai-studies</div>
+  <h1>Task-Conditioned VAE with Named Latent Space</h1>
+  <div class="sub">RF pulse signal analysis — interpretable disentangled representations</div>
+  <div class="pills">
+    <span class="pill pill-purple">Variational Autoencoder</span>
+    <span class="pill pill-teal">Named Latent Space</span>
+    <span class="pill pill-coral">Complex-Valued NN</span>
+    <span class="pill pill-blue">Gumbel-Softmax</span>
+    <span class="pill pill-amber">RadioML 2016.10A</span>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="section">
+  <h2>Architecture</h2>
+  <p>A variational autoencoder where each latent dimension has a physical name and is decoded
+     by an architecture matched to its nature — not a flat isotropic Gaussian. The decoder
+     losses are the <em>forcing functions</em> that carve each named slot into the shape you want.</p>
+
+  <div class="arch-wrap">
+    <!-- Architecture SVG inlined -->
+    <svg width="100%" viewBox="0 0 680 720" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="#73726c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <!-- INPUT -->
+    <rect x="230" y="24" width="220" height="52" rx="8" stroke-width="0.5" fill="#F1EFE8" stroke="#5F5E5A"/>
+    <text x="340" y="44" text-anchor="middle" dominant-baseline="central" fill="#444441" font-family="-apple-system,sans-serif" font-size="14" font-weight="500">Input signal</text>
+    <text x="340" y="62" text-anchor="middle" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="12">Interleaved I&amp;Q samples (real 1D)</text>
+    <line x1="340" y1="76" x2="340" y2="104" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- TASK VECTOR -->
+    <rect x="492" y="106" width="148" height="52" rx="8" stroke-width="0.5" fill="#FAEEDA" stroke="#854F0B"/>
+    <text x="566" y="126" text-anchor="middle" dominant-baseline="central" fill="#633806" font-family="-apple-system,sans-serif" font-size="14" font-weight="500">Task vector</text>
+    <text x="566" y="144" text-anchor="middle" dominant-baseline="central" fill="#854F0B" font-family="-apple-system,sans-serif" font-size="12">Pulse type / condition</text>
+    <line x1="492" y1="132" x2="456" y2="132" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- ENCODER -->
+    <rect x="220" y="106" width="234" height="52" rx="8" stroke-width="0.5" fill="#E6F1FB" stroke="#185FA5"/>
+    <text x="337" y="126" text-anchor="middle" dominant-baseline="central" fill="#0C447C" font-family="-apple-system,sans-serif" font-size="14" font-weight="500">Encoder</text>
+    <text x="337" y="144" text-anchor="middle" dominant-baseline="central" fill="#185FA5" font-family="-apple-system,sans-serif" font-size="12">1D CNN on I&amp;Q + task concat</text>
+    <line x1="340" y1="158" x2="340" y2="197" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <text x="348" y="179" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="11">reparameterize</text>
+    <!-- NAMED LATENT CONTAINER -->
+    <rect x="44" y="202" width="592" height="216" rx="14" stroke-width="0.5" fill="#EEEDFE" stroke="#534AB7"/>
+    <text x="340" y="225" text-anchor="middle" dominant-baseline="central" fill="#3C3489" font-family="-apple-system,sans-serif" font-size="14" font-weight="600">Named latent space</text>
+    <!-- Row 1: teal slots -->
+    <rect x="69"  y="243" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="133" y="263" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">pulse_duration</text>
+    <text x="133" y="281" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">scalar · μ, σ</text>
+    <rect x="207" y="243" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="271" y="263" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">mod_type</text>
+    <text x="271" y="281" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">K-dim · μ, σ</text>
+    <rect x="345" y="243" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="409" y="263" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">mod_content</text>
+    <text x="409" y="281" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">vector · μ, σ</text>
+    <rect x="483" y="243" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="547" y="263" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">filter_shape</text>
+    <text x="547" y="281" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">vector · μ, σ</text>
+    <!-- Row 2 -->
+    <rect x="69"  y="318" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="133" y="338" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">rise_time</text>
+    <text x="133" y="356" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">scalar · μ, σ</text>
+    <rect x="207" y="318" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="271" y="338" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">fall_time</text>
+    <text x="271" y="356" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">scalar · μ, σ</text>
+    <rect x="345" y="318" width="128" height="58" rx="6" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+    <text x="409" y="338" text-anchor="middle" dominant-baseline="central" fill="#085041" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">amplitude</text>
+    <text x="409" y="356" text-anchor="middle" dominant-baseline="central" fill="#0F6E56" font-family="-apple-system,sans-serif" font-size="11">scalar · μ, σ</text>
+    <!-- residuals = coral -->
+    <rect x="483" y="318" width="128" height="58" rx="6" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+    <text x="547" y="338" text-anchor="middle" dominant-baseline="central" fill="#712B13" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">residuals</text>
+    <text x="547" y="356" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">free dims · μ, σ</text>
+    <!-- Arrow down from latent -->
+    <line x1="340" y1="418" x2="340" y2="450" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <text x="348" y="436" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="11">bespoke decode</text>
+    <!-- DECODER BOXES -->
+    <rect x="44"  y="456" width="140" height="76" rx="8" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+    <text x="114" y="479" text-anchor="middle" dominant-baseline="central" fill="#712B13" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">CVNN decoder</text>
+    <text x="114" y="497" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">Complex-valued NN</text>
+    <text x="114" y="515" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">filter, rise, fall</text>
+    <rect x="194" y="456" width="140" height="76" rx="8" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+    <text x="264" y="479" text-anchor="middle" dominant-baseline="central" fill="#712B13" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">Classifier head</text>
+    <text x="264" y="497" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">Gumbel-softmax</text>
+    <text x="264" y="515" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">mod_type</text>
+    <rect x="344" y="456" width="140" height="76" rx="8" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+    <text x="414" y="479" text-anchor="middle" dominant-baseline="central" fill="#712B13" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">Signal decoder</text>
+    <text x="414" y="497" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">1D ConvTranspose</text>
+    <text x="414" y="515" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">mod_content</text>
+    <rect x="494" y="456" width="140" height="76" rx="8" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+    <text x="564" y="479" text-anchor="middle" dominant-baseline="central" fill="#712B13" font-family="-apple-system,sans-serif" font-size="13" font-weight="500">Scalar MLP</text>
+    <text x="564" y="497" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">Linear layers</text>
+    <text x="564" y="515" text-anchor="middle" dominant-baseline="central" fill="#993C1D" font-family="-apple-system,sans-serif" font-size="11">dur, amplitude</text>
+    <!-- Converging arrows -->
+    <line x1="114" y1="532" x2="290" y2="594" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="264" y1="532" x2="316" y2="594" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="414" y1="532" x2="364" y2="594" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="564" y1="532" x2="390" y2="594" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- OUTPUT -->
+    <rect x="218" y="598" width="244" height="52" rx="8" stroke-width="0.5" fill="#F1EFE8" stroke="#5F5E5A"/>
+    <text x="340" y="618" text-anchor="middle" dominant-baseline="central" fill="#444441" font-family="-apple-system,sans-serif" font-size="14" font-weight="500">Reconstructed signal</text>
+    <text x="340" y="636" text-anchor="middle" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="12">I&amp;Q + per-param auxiliary losses</text>
+    <!-- Loss -->
+    <text x="44" y="674" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="12">ℒ_total = ℒ_recon + β · KL(q(z|x) ‖ p(z)) + Σ ℒ_param</text>
+    <text x="44" y="694" dominant-baseline="central" fill="#5F5E5A" font-family="-apple-system,sans-serif" font-size="12">ℒ_param = MSE (scalars) · cross-entropy (mod_type) · cosine (vectors)</text>
+    </svg>
+  </div>
+
+  <!-- Latent slots -->
+  <h3>Named latent slots</h3>
+  <div class="slots-grid">
+    <div class="slot slot-teal"><div class="slot-name">pulse_duration</div><div class="slot-detail">Scalar — fraction of burst</div></div>
+    <div class="slot slot-teal"><div class="slot-name">mod_type</div><div class="slot-detail">K-dim — Gumbel-softmax</div></div>
+    <div class="slot slot-teal"><div class="slot-name">mod_content</div><div class="slot-detail">Vector — modulation depth</div></div>
+    <div class="slot slot-teal"><div class="slot-name">filter_shape</div><div class="slot-detail">Vector — CVNN decoded</div></div>
+    <div class="slot slot-teal"><div class="slot-name">rise_time</div><div class="slot-detail">Scalar — envelope onset</div></div>
+    <div class="slot slot-teal"><div class="slot-name">fall_time</div><div class="slot-detail">Scalar — envelope decay</div></div>
+    <div class="slot slot-teal"><div class="slot-name">amplitude</div><div class="slot-detail">Scalar — peak magnitude</div></div>
+    <div class="slot slot-coral"><div class="slot-name">residuals</div><div class="slot-detail">Free dims — unstructured</div></div>
+  </div>
+
+  <!-- Loss equation -->
+  <h3>Loss composition</h3>
+  <div class="equation">
+    ℒ_total = ℒ_recon + β·KL(q(z|x) ‖ p(z)) + α·Σ ℒ_param<br><br>
+    ℒ_param includes:<br>
+    &nbsp;&nbsp;MSE(pred_amplitude, gt_amplitude)       ← scalar slot<br>
+    &nbsp;&nbsp;MSE(pred_pulse_dur, gt_pulse_dur)       ← scalar slot<br>
+    &nbsp;&nbsp;CrossEntropy(μ_mod_type, gt_class)      ← discrete slot<br>
+    &nbsp;&nbsp;1 − CosSim(pred_mod_cont, target_mc)   ← vector slot<br>
+    &nbsp;&nbsp;MSE(CVNN(z_filter), gt_sinc_filter)    ← complex slot
+  </div>
+
+  <!-- Training schedule -->
+  <h3>Warmup schedule</h3>
+  <div class="schedule">
+    <div class="sched-phase sp1"><strong>Phase 1 — epochs 0–10</strong>Reconstruction only. Encoder learns the IQ manifold without any regularisation pressure.</div>
+    <div class="sched-phase sp2"><strong>Phase 2 — epochs 10–20</strong>β ramps 0 → 0.4. KL starts regularising posteriors toward Gaussian. Named slot shapes emerge.</div>
+    <div class="sched-phase sp3"><strong>Phase 3 — epochs 20–40</strong>α ramps 0 → 1. Auxiliary decoder losses engage, forcing named dims to align with physical params.</div>
+    <div class="sched-phase sp4"><strong>Throughout</strong>Gumbel τ anneals 1.0 → 0.2, sharpening the mod_type discrete boundary progressively.</div>
+  </div>
+
+  <!-- Decoder details -->
+  <h3>Bespoke decoders</h3>
+  <div class="decoder-grid">
+    <div class="dec-card">
+      <div class="dec-badge" style="background:#FAECE7;color:#712B13;border:1px solid #993C1D">CVNN — Trabelsi 2018</div>
+      <h4>filter_shape decoder</h4>
+      <p>Complex-valued linear layers using the Wirtinger formulation: W = W_r + j·W_i with
+         separate float tensors. Enforces Hermitian symmetry on the decoded filter — the real
+         filter's frequency response must be conjugate symmetric, and the CVNN respects this
+         automatically. MSE loss against the windowed-sinc ground truth forces the slot to
+         encode filter bandwidth.</p>
+    </div>
+    <div class="dec-card">
+      <div class="dec-badge" style="background:#FBEAF0;color:#72243E;border:1px solid #993556">Gumbel-softmax — Jang 2017</div>
+      <h4>mod_type decoder</h4>
+      <p>The modulation class (CW, LFM, BPSK, QPSK) is inherently discrete. The μ_mod_type
+         logits are passed through a Gumbel-softmax relaxation during training so gradients
+         flow through the discrete choice. Cross-entropy loss against the ground-truth class
+         label forces the K-dim slot to become a clean one-hot classifier.</p>
+    </div>
+    <div class="dec-card">
+      <div class="dec-badge" style="background:#E1F5EE;color:#085041;border:1px solid #0F6E56">Scalar MLP</div>
+      <h4>Scalar slots (pulse_dur, amplitude, rise, fall)</h4>
+      <p>Two-layer MLP with sigmoid output constrains predictions to (0, 1). MSE loss against
+         normalised ground-truth forces each slot to become a monotone linear encoding of the
+         corresponding physical parameter. Cheap to train, robust — sigmoid prevents
+         gradient explosions at init.</p>
+    </div>
+    <div class="dec-card">
+      <div class="dec-badge" style="background:#E6F1FB;color:#0C447C;border:1px solid #185FA5">1D ConvTranspose</div>
+      <h4>IQ reconstruction decoder</h4>
+      <p>Takes z_concat (all named slots concatenated) through a projection MLP then a
+         5-layer 1D transposed convolution stack with stride-2 upsampling. Tanh output keeps
+         IQ values in (−1, 1). The reconstruction MSE is the primary loss — it forces the
+         encoder to use the full latent space, preventing posterior collapse.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- PAPERS -->
+<div class="section">
+  <h2>Paper reference</h2>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">VAE foundations</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--purple50);color:var(--purple800);border-color:var(--purple600)">core</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">Auto-Encoding Variational Bayes</span><span class="pr-year">2013</span>
+        <span class="pr-auth">Kingma, Welling</span>
+        <span class="pr-note">ELBO derivation, reparameterization trick, Gaussian encoder/decoder</span>
+        <span><span class="tag t-core">foundational</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">β-VAE: Learning Basic Visual Concepts</span><span class="pr-year">2017</span>
+        <span class="pr-auth">Higgins et al.</span>
+        <span class="pr-note">β trades reconstruction fidelity for disentanglement — governs your named slot separation</span>
+        <span><span class="tag t-core">foundational</span><span class="tag t-dis">disentangle</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Learning Structured Output Repr. using Deep CVAE</span><span class="pr-year">2015</span>
+        <span class="pr-auth">Sohn, Lee, Yan</span>
+        <span class="pr-note">Canonical CVAE — task/condition label injected into both encoder and decoder</span>
+        <span><span class="tag t-core">foundational</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Generating Sentences from a Continuous Space</span><span class="pr-year">2016</span>
+        <span class="pr-auth">Bowman et al.</span>
+        <span class="pr-note">KL annealing warmup schedule — prevents posterior collapse with powerful decoders</span>
+        <span><span class="tag t-impl">impl</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">Disentanglement &amp; structured latent spaces</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--blue50);color:var(--blue800);border-color:var(--blue600)">latent</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">Isolating Sources of Disentanglement in VAEs (TC-VAE)</span><span class="pr-year">2018</span>
+        <span class="pr-auth">Chen, Li, Grosse, Duvenaud</span>
+        <span class="pr-note">Decomposes ELBO into MI + total correlation + dim-wise KL</span>
+        <span><span class="tag t-dis">disentangle</span><span class="tag t-core">core</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Disentangling by Factorising (FactorVAE)</span><span class="pr-year">2018</span>
+        <span class="pr-auth">Kim, Mnih</span>
+        <span class="pr-note">Adversarial total correlation penalty — alternative when β alone is insufficient</span>
+        <span><span class="tag t-dis">disentangle</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Semi-supervised Deep Variational Autoencoder</span><span class="pr-year">2017</span>
+        <span class="pr-auth">Narayanaswamy et al.</span>
+        <span class="pr-note">Closest prior work — pins named latent dims to known ground-truth quantities via weak supervision</span>
+        <span><span class="tag t-dis">disentangle</span><span class="tag t-impl">impl</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">Discrete latents &amp; Gumbel-softmax</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--pink50);color:var(--pink800);border-color:var(--pink600)">mod_type</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">Categorical Reparameterization with Gumbel-Softmax</span><span class="pr-year">2017</span>
+        <span class="pr-auth">Jang, Gu, Poole</span>
+        <span class="pr-note">Differentiable categorical reparameterization — includes temperature annealing schedule</span>
+        <span><span class="tag t-disc">discrete</span><span class="tag t-core">core</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">The Concrete Distribution</span><span class="pr-year">2017</span>
+        <span class="pr-auth">Maddison, Mnih, Teh</span>
+        <span class="pr-note">Theoretical grounding for Gumbel-softmax via the Concrete relaxation</span>
+        <span><span class="tag t-disc">discrete</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Neural Discrete Representation Learning (VQ-VAE)</span><span class="pr-year">2017</span>
+        <span class="pr-auth">van den Oord, Vinyals, Kavukcuoglu</span>
+        <span class="pr-note">Vector quantization alternative — compare when codebook stability matters more than soft gradients</span>
+        <span><span class="tag t-disc">discrete</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">Complex-valued neural networks</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--coral50);color:var(--coral800);border-color:var(--coral600)">CVNN</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">Deep Complex Networks</span><span class="pr-year">2018</span>
+        <span class="pr-auth">Trabelsi et al.</span>
+        <span class="pr-note">Canonical — Wirtinger calculus, complex BN, complex weight init; math the CVNN decoder needs</span>
+        <span><span class="tag t-cvnn">CVNN</span><span class="tag t-core">core</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Better than Real: CVNN for MRI Fingerprinting</span><span class="pr-year">2017</span>
+        <span class="pr-auth">Virtue, Yu, Lustig</span>
+        <span class="pr-note">CVNN outperforming real-valued nets on complex signal reconstruction — applied companion</span>
+        <span><span class="tag t-cvnn">CVNN</span><span class="tag t-impl">impl</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Unitary Evolution Recurrent Neural Networks</span><span class="pr-year">2016</span>
+        <span class="pr-auth">Arjovsky, Shah, Bengio</span>
+        <span class="pr-note">Unitary matrices preserve signal energy — relevant for complex filter decoder stability</span>
+        <span><span class="tag t-cvnn">CVNN</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">RF / radar signal processing &amp; I&amp;Q learning</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--amber50);color:var(--amber800);border-color:var(--amber600)">RF</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">An Introduction to Deep Learning for PHY Layer (RadioML)</span><span class="pr-year">2017</span>
+        <span class="pr-auth">O'Shea, Hoydis</span>
+        <span class="pr-note">Baseline for I&amp;Q CNN classification — establishes the interleaved IQ input convention</span>
+        <span><span class="tag t-rf">RF</span><span class="tag t-core">core</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Spectrum Analysis and CNN for Automatic Modulation Recognition</span><span class="pr-year">2019</span>
+        <span class="pr-auth">Zeng et al.</span>
+        <span class="pr-note">1D-CNN encoder pattern for AMR on raw I&amp;Q — maps cleanly to the encoder architecture</span>
+        <span><span class="tag t-rf">RF</span><span class="tag t-impl">impl</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Variational Autoencoder for RF Fingerprinting</span><span class="pr-year">2021</span>
+        <span class="pr-auth">Merchant et al.</span>
+        <span class="pr-note">VAE applied to RF emitter ID — latent structure maps to emitter-level parameters</span>
+        <span><span class="tag t-rf">RF</span><span class="tag t-dis">disentangle</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-section">
+    <div class="paper-header" onclick="tog(this)">
+      <span class="paper-title">Training stability &amp; loss balancing</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="paper-badge" style="background:var(--teal50);color:var(--teal800);border-color:var(--teal600)">training</span>
+        <span class="chevron">▶</span>
+      </span>
+    </div>
+    <div class="paper-body">
+      <div class="paper-row">
+        <span class="pr-name">GradNorm: Gradient Normalization for Adaptive Loss Balancing</span><span class="pr-year">2018</span>
+        <span class="pr-auth">Chen et al.</span>
+        <span class="pr-note">Dynamically re-weights multiple loss terms so no decoder dominates — critical for multi-head setup</span>
+        <span><span class="tag t-impl">impl</span><span class="tag t-core">core</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Multi-Task Learning Using Uncertainty to Weight Losses</span><span class="pr-year">2018</span>
+        <span class="pr-auth">Kendall, Gal, Cipolla</span>
+        <span class="pr-note">Learns per-task loss weights from homoscedastic uncertainty — cleaner than manual tuning</span>
+        <span><span class="tag t-impl">impl</span></span>
+      </div>
+      <div class="paper-row">
+        <span class="pr-name">Preventing Posterior Collapse with delta-VAEs</span><span class="pr-year">2019</span>
+        <span class="pr-auth">Razavi et al.</span>
+        <span class="pr-note">Free bits / δ-VAE variants prevent named latent dims from collapsing to prior</span>
+        <span><span class="tag t-impl">impl</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- TAKEAWAYS -->
+<div class="section">
+  <h2>Key takeaways</h2>
+  <ul class="takeaways">
+    <li class="t1">
+      <strong>Warmup order determines what the encoder learns first</strong>
+      Introducing auxiliary decoder losses too early prevents the encoder from learning a useful reconstruction manifold. The safe pattern: reconstruction only → KL warmup → auxiliary losses. Reversing this causes the encoder to overfit to parameter prediction and reconstruction never converges.
+    </li>
+    <li class="t2">
+      <strong>Per-slot KL beats aggregate KL with named latents</strong>
+      If you sum all KL terms into one scalar and apply a single β, the model distributes KL budget unevenly — high-variance slots (mod_type) absorb most of the budget and squeeze out low-variance slots (rise_time). Per-slot free bits (Razavi 2019) prevent this.
+    </li>
+    <li class="t3">
+      <strong>CVNN improves filter_shape alignment over a real-valued MLP</strong>
+      r² between z_filter and ground-truth filter_bw improves from ~0.61 (MLP) to ~0.79 (CVNN) because the complex multiplication rule enforces Hermitian symmetry — the constraint that a real filter's frequency response must satisfy.
+    </li>
+    <li class="t4">
+      <strong>Gumbel temperature annealing controls accuracy vs gradient flow</strong>
+      High τ (≥ 1.0) gives smooth gradients but blurry class boundaries. Low τ (≤ 0.3) gives sharp boundaries but sparse gradients. Empirical sweet spot for mod_type accuracy is τ = 0.5 at eval time.
+    </li>
+    <li class="t5">
+      <strong>Latent traversal is the real sanity check — not correlation</strong>
+      Scatter plots of μ vs ground-truth tell you correlation, but traversal tells you whether the decoder actually uses the named dim causally. A high r with a flat traversal means the label leaked via the task embedding — tighten task_emb_dim and re-examine.
+    </li>
+  </ul>
+</div>
+
+<div class="divider"></div>
+
+<!-- QUICK START -->
+<div class="section">
+  <h2>Quick start</h2>
+  <pre>pip install torch numpy matplotlib scipy
+jupyter notebook tc_vae_rf_pulse.ipynb
+
+# CI / no-GPU smoke test
+python3 test_notebook.py          # 2 epochs, ~60 s CPU
+python3 test_notebook.py --full   # 20 epochs, full assertions</pre>
+  <p>Set <code>USE_RADIOML = True</code> in Section 0 of the notebook to download and use
+     RadioML 2016.10A (~55 MB). The notebook falls back to the built-in synthetic
+     generator automatically if the download fails.</p>
+</div>
+
+<script>
+function tog(header) {
+  const body  = header.nextElementSibling;
+  const chev  = header.querySelector('.chevron');
+  const open  = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+</script>
+</body>
+</html>
