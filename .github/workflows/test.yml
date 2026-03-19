@@ -1,4 +1,4 @@
-name: Test Notebook
+name: Test All Studies
 
 on:
   push:
@@ -11,44 +11,90 @@ defaults:
     shell: bash
 
 permissions:
-  contents: write        # allows the runner to push results back to the repo
+  contents: write
 
 env:
   VENV: /home/seth/venv
 
 jobs:
-  test:
+  maritime-detection:
+    name: "01 · Maritime detection"
     runs-on: [self-hosted, linux, gpu]
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: studies/01_maritime_small_obj_detection
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           persist-credentials: true
 
-      - name: Run tests (synthetic only)
+      - name: Smoke test (synthetic only)
         continue-on-error: true
         run: |
           echo "=== RUN STARTED $(date) ===" > ci_results_synthetic.txt
-          source $VENV/bin/activate 2>&1 >> ci_results_synthetic.txt || echo "VENV ACTIVATE FAILED" >> ci_results_synthetic.txt
+          source $VENV/bin/activate >> ci_results_synthetic.txt 2>&1 || echo "VENV ACTIVATE FAILED" >> ci_results_synthetic.txt
           python3 test_notebook.py >> ci_results_synthetic.txt 2>&1
           echo "=== EXIT CODE: $? ===" >> ci_results_synthetic.txt
 
-      - name: Run tests + DINOv2 backbone
+      - name: DINOv2 backbone test
         continue-on-error: true
         run: |
           echo "=== RUN STARTED $(date) ===" > ci_results_dinov2.txt
-          source $VENV/bin/activate 2>&1 >> ci_results_dinov2.txt || echo "VENV ACTIVATE FAILED" >> ci_results_dinov2.txt
+          source $VENV/bin/activate >> ci_results_dinov2.txt 2>&1 || echo "VENV ACTIVATE FAILED" >> ci_results_dinov2.txt
           python3 test_notebook.py --dinov2 >> ci_results_dinov2.txt 2>&1
           echo "=== EXIT CODE: $? ===" >> ci_results_dinov2.txt
 
-      - name: Commit test results
+      - name: Commit results
         if: always()
         run: |
+          cd $GITHUB_WORKSPACE
           git config user.email "ci@github-actions"
           git config user.name "GitHub Actions"
           git pull origin main --rebase -q
-          git add -f ci_results_synthetic.txt ci_results_dinov2.txt
-          git commit -m "ci: test results [skip ci]" || echo "nothing to commit"
+          git add -f studies/01_maritime_small_obj_detection/ci_results_synthetic.txt \
+                      studies/01_maritime_small_obj_detection/ci_results_dinov2.txt
+          git commit -m "ci(01-maritime): test results [skip ci]" || echo "nothing to commit"
+          git push origin main
+
+  tc-vae-rf-pulse:
+    name: "02 · TC-VAE RF pulse"
+    runs-on: [self-hosted, linux, gpu]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: studies/02_tc_vae_rf_pulse
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Smoke test (synthetic, 2 epochs, CPU)
+        continue-on-error: true
+        run: |
+          echo "=== RUN STARTED $(date) ===" > ci_results_smoke.txt
+          source $VENV/bin/activate >> ci_results_smoke.txt 2>&1 || echo "VENV ACTIVATE FAILED" >> ci_results_smoke.txt
+          python3 test_notebook.py >> ci_results_smoke.txt 2>&1
+          echo "=== EXIT CODE: $? ===" >> ci_results_smoke.txt
+
+      - name: Full test (20 epochs, GPU if available)
+        continue-on-error: true
+        run: |
+          echo "=== RUN STARTED $(date) ===" > ci_results_full.txt
+          source $VENV/bin/activate >> ci_results_full.txt 2>&1 || echo "VENV ACTIVATE FAILED" >> ci_results_full.txt
+          python3 test_notebook.py --full >> ci_results_full.txt 2>&1
+          echo "=== EXIT CODE: $? ===" >> ci_results_full.txt
+
+      - name: Commit results
+        if: always()
+        run: |
+          cd $GITHUB_WORKSPACE
+          git config user.email "ci@github-actions"
+          git config user.name "GitHub Actions"
+          git pull origin main --rebase -q
+          git add -f studies/02_tc_vae_rf_pulse/ci_results_smoke.txt \
+                      studies/02_tc_vae_rf_pulse/ci_results_full.txt
+          git commit -m "ci(02-tc-vae): test results [skip ci]" || echo "nothing to commit"
           git push origin main
