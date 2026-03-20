@@ -1,0 +1,25 @@
+=== RUN STARTED Thu Mar 19 08:15:27 PM MDT 2026 ===
+[TC-VAE test] mode=full epochs=20 train_n=512
+[OK] torch 2.5.1+cu121 (CPU only for CI)
+[1/5] Data generation stress test …
+[OK] 200 random pulses generated in 0.03s
+[2/5] Building dataset …
+[OK] train=512 val=64
+[3/5] Building model …
+[OK] 455,211 parameters
+[OK] forward pass shapes correct
+[4/5] Training 20 epochs …
+  ep   5  loss=0.5245  β=0.133  α=0.000
+  ep  10  loss=0.9017  β=0.267  α=0.333
+  ep  15  loss=1.2095  β=0.400  α=0.667
+  ep  20  loss=1.4313  β=0.400  α=1.000
+[OK] training done in 5.4s
+[OK] loss trend: 0.6745 → 1.2171
+[5/5] Evaluation checks …
+[OK] val recon MSE = 0.57148
+[OK] KL = 0.7382  z_concat shape = torch.Size([32, 28])
+
+==================================================
+ALL TESTS PASSED  (5.5s total)
+==================================================
+=== EXIT CODE: 0 ===
