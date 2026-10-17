@@ -34,25 +34,25 @@ ai-studies/
     └── 02_tc_vae_rf_pulse/
         ├── README.md
         ├── tc_vae_rf_pulse.ipynb
-        └── test_notebook.py
+        ├── test_notebook.py
+        ├── overview.html
+        └── assets/architecture.svg
 ```
 
 ---
 
 ## Running locally
 
-Each study has its own `test_notebook.py` for quick validation without launching Jupyter:
+Each study has a standalone validation script. Run it from the repository root:
 
 ```bash
 # Maritime detection study
-cd studies/01_maritime_small_obj_detection
-python3 test_notebook.py              # synthetic data, CPU, ~2 min
-python3 test_notebook.py --dinov2     # + DINOv2 weights download
+python3 studies/01_maritime_small_obj_detection/test_notebook.py
+python3 studies/01_maritime_small_obj_detection/test_notebook.py --dinov2
 
 # TC-VAE RF pulse study
-cd studies/02_tc_vae_rf_pulse
-python3 test_notebook.py              # synthetic data, CPU, ~60 s
-python3 test_notebook.py --full       # 20 epochs, more assertions
+python3 studies/02_tc_vae_rf_pulse/test_notebook.py
+python3 studies/02_tc_vae_rf_pulse/test_notebook.py --full
 ```
 
 Dependencies per study are listed in each study's README.
@@ -63,5 +63,6 @@ Common baseline: `pip install torch numpy matplotlib scipy`
 ## CI
 
 Tests run on a self-hosted GitHub Actions runner (Ubuntu, RTX 2060, `/home/seth/venv`).
-Results are committed back to the repo as `ci_results_*.txt` files in each study folder.
-See `.github/workflows/test.yml` for the full pipeline.
+The workflow records run output in `ci_results_*.txt` files in each study folder.
+See `.github/workflows/test.yml` for the full pipeline. Generated model checkpoints,
+downloaded weights, local data, and Python cache files are ignored by Git.

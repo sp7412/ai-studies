@@ -11,6 +11,9 @@ with a DETR-style detection head, evaluated on SeaDronesSee and AFO datasets.
 | `restructure_afo.py` | Converts AFO YOLO-format labels to COCO format |
 | `test_notebook.py` | CI test script — synthetic data, no dataset download needed |
 
+The AFO converter prefixes exported filenames with their source part so files with
+the same basename cannot overwrite each other. It accepts JPG, JPEG, and PNG images.
+
 ## Quick start
 
 ```bash

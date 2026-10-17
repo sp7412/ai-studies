@@ -43,6 +43,7 @@ Usage:
 import argparse
 import random
 import shutil
+import sys
 from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -57,11 +58,21 @@ LABEL_SUBDIR = "6categories"   # the annotation scheme we use
 AFO_CLASSES = ["human", "surfer", "kayak", "boat", "buoy", "sailboat"]
 
 
-def main(src: Path, dst: Path):
+def main(src: Path, dst: Path) -> int:
+    src, dst = src.expanduser().resolve(), dst.expanduser().resolve()
+    if not src.is_dir():
+        print(f"ERROR: source directory does not exist: {src}")
+        return 1
+    if src == dst or src in dst.parents:
+        print("ERROR: destination must not be the source directory or inside it")
+        return 1
     random.seed(SEED)
 
     # ── 1. Collect all images ─────────────────────────────────────────────────
-    all_images = sorted(src.rglob("images/*.jpg"))
+    all_images = sorted(
+        p for p in src.rglob("images/*")
+        if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
+    )
     print(f"Found {len(all_images)} images across all PART dirs")
 
     # ── 2. For each image, find its 6categories label (if exists) ─────────────
@@ -82,9 +93,12 @@ def main(src: Path, dst: Path):
         print("\nERROR: No paired images found. Check that LABEL_SUBDIR is correct.")
         print(f"  Looking for: {LABEL_SUBDIR}/")
         print("  Available subdirs in PART_1:")
-        for d in sorted((src / "PART_1" / "PART_1").iterdir()):
-            print(f"    {d.name}/")
-        return
+        example = src / "PART_1" / "PART_1"
+        if example.is_dir():
+            for d in sorted(example.iterdir()):
+                if d.is_dir():
+                    print(f"    {d.name}/")
+        return 1
 
     # ── 3. Shuffle and split ──────────────────────────────────────────────────
     random.shuffle(paired)
@@ -110,8 +124,13 @@ def main(src: Path, dst: Path):
     done  = 0
     for split, items in splits.items():
         for img_src, lbl_src in items:
-            shutil.copy2(img_src, dst / "images" / split / img_src.name)
-            shutil.copy2(lbl_src, dst / "labels" / split / lbl_src.name)
+            # Include the source part in each filename: AFO parts can reuse basenames.
+            prefix = "__".join(img_src.relative_to(src).parts[:-2]) or "afo"
+            safe_prefix = "_".join(prefix.split())
+            output_stem = f"{safe_prefix}_{img_src.stem}"
+            image_dst = dst / "images" / split / f"{output_stem}{img_src.suffix.lower()}"
+            shutil.copy2(img_src, image_dst)
+            shutil.copy2(lbl_src, dst / "labels" / split / f"{output_stem}.txt")
             done += 1
             if done % 200 == 0 or done == total:
                 print(f"  Copied {done}/{total} ...", end="\r")
@@ -121,7 +140,8 @@ def main(src: Path, dst: Path):
     # ── 6. Sanity check ───────────────────────────────────────────────────────
     print("\nSanity check:")
     for split in ["train", "val", "test"]:
-        imgs = list((dst / "images" / split).glob("*.jpg"))
+        imgs = [p for p in (dst / "images" / split).iterdir()
+                if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png"}]
         lbls = list((dst / "labels" / split).glob("*.txt"))
         print(f"  {split:5}: {len(imgs)} images, {len(lbls)} labels", end="")
         if len(imgs) != len(lbls):
@@ -132,6 +152,7 @@ def main(src: Path, dst: Path):
     (dst / "classes.txt").write_text("\n".join(AFO_CLASSES) + "\n")
     print(f"\nClasses: {AFO_CLASSES}")
     print("All done ✓")
+    return 0
 
 
 if __name__ == "__main__":
@@ -141,4 +162,4 @@ if __name__ == "__main__":
     parser.add_argument("--dst", type=Path, default=DEFAULT_DST,
                         help=f"Path to write cleaned dataset (default: {DEFAULT_DST})")
     args = parser.parse_args()
-    main(args.src, args.dst)
+    sys.exit(main(args.src, args.dst))
